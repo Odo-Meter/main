@@ -74,4 +74,6 @@ jobs:
           python3 devx/check_changelog_fragment.py --labels "$PR_LABELS"
       - name: Exercise negative release-gate paths
         run: python3 -m unittest discover -s devx -p 'test_*.py' -v
+      - name: Run backend timestamp-chain validation report tests
+        run: python3 -m pytest backend/tests -k timestamp_chain -q
 

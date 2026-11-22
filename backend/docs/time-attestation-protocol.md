@@ -306,6 +306,10 @@ The report is computed purely from the stored attestation and locally provided t
 
 An offline timestamp-chain validation report is produced for every attestation and includes the overall trust result, derived from the strongest dependency that is `valid`. An `invalid` dependency lowers the overall result regardless of other valid dependencies.
 
+The report is intended to be reproducible in CI: the same attestation, trust material, and locally provided ledger archive always yield the same report. The backend CI workflows (`backend-tests`, `security-scans`, `e2e-env-matrix`, and `release-gate`) exercise this report using synthetic fixtures, fake transports, and temporary state directories only. No production credentials, live network access, or real sensitive media are required.
+
+Compatibility: the report is additive. Existing attestation encodings, the `harpocrates-time-attestation/v1` profile identifier, and the validation endpoints are unchanged. Evidence without time attestations continues to produce no timestamp-chain report dependencies beyond `absent`.
+
 1. Parse attestation from stored JSONB
 2. Verify digest binding locally
 3. Check Stellar anchor against local ledger archive
