@@ -239,7 +239,7 @@ describe('batchExport', () => {
     expect(summary.cancelled).toBe(0)
     expect(summary.incomplete).toBe(0)
     expect(summary.unresolved).toBe(0)
-    expect(summary.complete).toBe(true)
+    expect(summary.complete).toBe(!0)
   })
 
   it('treats an empty batch as incomplete rather than a complete run', () => {
