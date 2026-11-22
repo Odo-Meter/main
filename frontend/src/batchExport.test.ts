@@ -9,6 +9,7 @@ import {
   sanitizeBatchResults,
   validateBatchExportResults,
 } from './batchExport'
+import { summarizeBatchCompleteness } from './batchVerifier'
 
 describe('batchExport', () => {
   const mockItems: BatchItemResult[] = [
@@ -162,7 +163,7 @@ describe('batchExport', () => {
         ...mockItems[0],
         id: 'item-dup',
         fileName: 'evidence1-copy.mp4',
-        status: 'duplicate',
+        status: 'Duplicate',
         metadataHash: null,
         tier: null,
         chainStatus: null,
@@ -174,5 +175,77 @@ describe('batchExport', () => {
     expect(() => exportBatchJSON(withDuplicate)).not.toThrow()
     expect(() => exportBatchCSV(withDuplicate)).not.toThrow()
     expect(() => exportReceiptCollection(withDuplicate)).not.toThrow()
+  })
+
+  it('reports verified, failed, cancelled and incomplete items separately in the batch summary', () => {
+    const mixed: BatchItemResult[] = [
+      mockItems[0],
+      {
+        ...mockItems[1],
+        id: 'item-failed',
+        fileName: 'failed.mp4',
+        status: 'failed',
+        failureReason: 'Proof verification failed',
+      },
+      {
+        ...mockItems[1],
+        id: 'item-cancelled',
+        fileName: 'cancelled.mp4',
+        status: 'cancelled',
+        failureReason: 'Cancelled by user',
+      },
+      {
+        ...mockItems[1],
+        id: 'item-incomplete',
+        fileName: 'incomplete.mp4',
+        status: 'incomplete',
+        failureReason: 'Batch interrupted',
+      },
+    ]
+
+    const summary = summarizeBatchCompleteness(mixed)
+    expect(summary.total).toBe(4)
+    expect(summary.verified).toBe(1)
+    expect(summary.failed).toBe(1)
+    expect(summary.cancelled).toBe(1)
+    expect(summary.incomplete).toBe(1)
+    expect(summary.unresolved).toBe(3)
+    expect(summary.complete).toBe(false)
+  })
+
+  it('never treats an interrupted batch as a complete verification run', () => {
+    const interrupted: BatchItemResult[] = [
+      mockItems[0],
+      {
+        ...mockItems[1],
+        id: 'item-incomplete',
+        fileName: 'incomplete.mp4',
+        status: 'incomplete',
+        failureReason: 'Batch interrupted',
+      },
+    ]
+
+    const summary = summarizeBatchCompleteness(interrupted)
+    expect(summary.incomplete).toBe(1)
+    expect(summary.complete).toBe(false)
+    expect(summary.unresolved).toBeGreaterThan(0)
+  })
+
+  it('reports a fully resolved batch as complete', () => {
+    const summary = summarizeBatchCompleteness(mockItems)
+    expect(summary.total).toBe(2)
+    expect(summary.verified).toBe(1)
+    expect(summary.failed).toBe(1)
+    expect(summary.cancelled).toBe(0)
+    expect(summary.incomplete).toBe(0)
+    expect(summary.unresolved).toBe(0)
+    expect(summary.complete).toBe(true)
+  })
+
+  it('treats an empty batch as incomplete rather than a complete run', () => {
+    const summary = summarizeBatchCompleteness([])
+    expect(summary.total).toBe(0)
+    expect(summary.unresolved).toBe(0)
+    expect(summary.complete).toBe(false)
   })
 })
