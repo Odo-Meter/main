@@ -52,6 +52,12 @@ const KNOWN_FIELDS = new Set([
  */
 const EXTENSION_KEY = /^x-[a-z0-9][a-z0-9._-]{0,63}$/
 
+/**
+ * Keys that carry required semantics and must never be accepted as optional
+ * extensions, even if they are prefixed. Rejected fail-closed.
+ */
+const REQUIRED_SEMANTIC_KEY = /^(required|critical|must)[:._-]/i
+
 export type ManifestInput = {
   proofId: string
   tier: IdentityTier
@@ -96,9 +102,23 @@ export function createProofManifest(input: ManifestInput): ProofManifest {
   if (input.scopeName) manifest.scopeName = input.scopeName
   if (input.selectiveDisclosure) manifest.selectiveDisclosure = input.selectiveDisclosure
   if (input.extensions && Object.keys(input.extensions).length > 0) {
-    manifest.extensions = sortKeys(input.extensions)
+    manifest.extensions = validateExtensions(input.extensions)
   }
   return manifest
+}
+
+/**
+ * Validate extension members: each key must be an optional namespaced
+ * `x-` member and must not carry required semantics. Fail-closed otherwise.
+ * Returns a deterministically key-sorted copy.
+ */
+function validateExtensions(extensions: Record<string, unknown>): Record<string, unknown> {
+  for (const key of Object.keys(extensions)) {
+    if (REQUIRED_SEMANTIC_KEY.test(key) || !EXTENSION_KEY.test(key)) {
+      throw new Error('manifest contains unsupported extension')
+    }
+  }
+  return sortKeys(extensions)
 }
 
 /** Recursively sort object keys so extension payloads serialise deterministically. */
@@ -161,7 +181,7 @@ export function parseManifest(json: string): ProofManifest {
       throw new Error('manifest extensions must be an object')
     }
     for (const key of Object.keys(ext as Record<string, unknown>)) {
-      if (!EXTENSION_KEY.test(key)) {
+      if (REQUIRED_SEMANTIC_KEY.test(key) || !EXTENSION_KEY.test(key)) {
         throw new Error('manifest contains unsupported extension')
       }
     }
